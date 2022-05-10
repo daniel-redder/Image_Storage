@@ -20,7 +20,7 @@ path  : a traditional mySQL file path storage
 h5py  : storing a reference to the part of a hdf5 file to decompress & fetch
 zipped path: no SQL database just accessing zipped files ordered by category
 """
-test_type = ""
+test_type = "blob"
 
 
 """
@@ -33,10 +33,18 @@ dataset_usage = "imageNet"
 """
 Please place the following information for your mySQL database implementation
 """
-hostname = "localhost"
-username = "username"
-password = "password"
-database = "dbname"
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+hostname = os.getenv("SQL_HOSTNAME")
+username = os.getenv("SQL_USERNAME")
+password = os.getenv("SQL_PASSWORD")
+
+#Also please create a database called the following / change this string to be a different database name
+database = "data"
 
 conn = MySQLdb.connect(host = hostname, user = username, passwd = password, db = database)
 curse = conn.cursor()
@@ -44,14 +52,15 @@ curse = conn.cursor()
 assert os.path.exists(dataset_usage), "directory not found"
 
 
+#We choose medium blob here because it is fitting for our test data
 if test_type == "blob":
 
 
     table_create = """
-    CREATE TABLE image_test(
-        im_id BIGINT PRIMARY KEY AUTOINCREMENT,
-        class VARCHAR(15) NOT NULL,
-        image BLOB NOT NULL
+     CREATE TABLE IF NOT EXISTS image_test(
+        im_id BIGINT PRIMARY KEY auto_increment,
+        image_class VARCHAR(15) NOT NULL,
+        image MEDIUMBLOB NOT NULL);
     """
     curse.execute(table_create)
     conn.commit()
@@ -65,7 +74,7 @@ if test_type == "blob":
             with open(f"{dataset_usage}/{category}/{img}","rb") as f:
                 img_file = f.read()
 
-            curse.execute("INSERT INTO image_test(class, image) VALUES( (?), (?))",(category,img_file))
+            curse.execute("INSERT INTO image_test(image_class, image) VALUES( %s, %s)",(category,img_file))
         conn.commit()
     clock_stop_insert = time.time()
 
@@ -89,11 +98,17 @@ if test_type == "blob":
 
     #create materialized view
 
+
+
     #query all values in view in batches of size ...
     batch_size = 10000
 
+
+
     #------------- query calc complete ----------------------------------------------------------------------
     #start update calc
+
+
 
 
     #------------ update calc complete ----------------------------------------------------------------------
@@ -101,16 +116,26 @@ if test_type == "blob":
 
 
 
+
+
     #----------- backup calc complete -----------------------------------------------------------------------
 
+
+elif test_type == "h5py":
+    
+
+
+
+
+#Out of time :(
 elif test_type == "path":
     pass
 
 
-elif test_type == "h5py":
-    pass
 
 
+
+#Out of time :(
 elif test_type == "zipped path":
     pass
 
