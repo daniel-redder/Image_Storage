@@ -21,6 +21,15 @@ h5py  : storing a reference to the part of a hdf5 file to decompress & fetch
 zipped path: no SQL database just accessing zipped files ordered by category
 """
 test_type = "blob"
+batch_size = 10
+
+
+"""
+The classes of images we are saving are these sizes
+cars: 949MB
+codd: 400kb
+elon 1.05 MB
+"""
 
 
 """
@@ -29,6 +38,8 @@ the dir name set here with subdirectories holding categorized images
 """
 dataset_usage = "imageNet"
 
+
+run_insert = False
 
 """
 Please place the following information for your mySQL database implementation
@@ -55,74 +66,76 @@ assert os.path.exists(dataset_usage), "directory not found"
 #We choose medium blob here because it is fitting for our test data
 if test_type == "blob":
 
+    if run_insert:
 
-    table_create = """
-     CREATE TABLE IF NOT EXISTS image_test(
-        im_id BIGINT PRIMARY KEY auto_increment,
-        image_class VARCHAR(15) NOT NULL,
-        image MEDIUMBLOB NOT NULL);
-    """
-    curse.execute(table_create)
-    conn.commit()
+        emp_table_create = """
+        CREATE TABLE IF NOT EXISTS employee(
+        emp_id int  PRIMARY KEY,
+        emp_name VARCHAR(20),
+        emp_loc_id int);
+        """
 
-    clock_start_insert = time.time()
-
-    for category in os.listdir(dataset_usage):
-        img_list = os.listdir(f"{dataset_usage}/{category}")
-        for img in img_list:
-
-            with open(f"{dataset_usage}/{category}/{img}","rb") as f:
-                img_file = f.read()
-
-            curse.execute("INSERT INTO image_test(image_class, image) VALUES( %s, %s)",(category,img_file))
+        im_table_create = """
+         CREATE TABLE IF NOT EXISTS image_test(
+            im_id BIGINT PRIMARY KEY auto_increment,
+            emp_id int NOT NULL,
+            image_class VARCHAR(15) NOT NULL,
+            image MEDIUMBLOB NOT NULL,
+            FOREIGN KEY (emp_id) REFERENCES employee(emp_id));
+        """
+        curse.execute(emp_table_create)
+        curse.execute(im_table_create)
         conn.commit()
-    clock_stop_insert = time.time()
 
-    print(f"Insertion into blob complete time taken {clock_stop_insert-clock_start_insert}")
+        curse.execute("INSERT INTO employee(emp_id, emp_name,emp_loc_id) VALUES(0,'billy',0);")
+
+        clock_start_insert = time.time()
+
+        for category in os.listdir(dataset_usage):
+            img_list = os.listdir(f"{dataset_usage}/{category}")
+            for img in img_list:
+
+                with open(f"{dataset_usage}/{category}/{img}","rb") as f:
+                    img_file = f.read()
+
+                curse.execute("INSERT INTO image_test(image_class, image, emp_id) VALUES( %s, %s, 0)",(category,img_file))
+            conn.commit()
+        clock_stop_insert = time.time()
+
+        print(f"Insertion into blob complete time taken {clock_stop_insert-clock_start_insert}")
 
     #-------------- insertion complete -------------------------------------------------------------------
     #begin space calculation
 
     curse.execute("SHOW TABLE STATUS")
-    print(curse.fetchall())
+    print("Total Data Length (gb) (medium blob): ")
+    print(int(curse.fetchall()[1][6])/(pow(10,9)))
 
-    #---------------- space calc complete ---------------------------------------------------------------
-    #begin query time calculation
-
-    #single element query
-
-
-    #class query
-
-    #batch access query
-
-    #create materialized view
+    #----------- Space calculation complete -----------------
+    #begin query batch
 
 
 
-    #query all values in view in batches of size ...
-    batch_size = 10000
+    clock_start_query = time.time()
+    curse.execute(f"SELECT image FROM image_test WHERE image_class='cars' LIMIT {batch_size}")
+    x= curse.fetchall()
+    clock_stop_query = time.time()
 
+    print("Query time for blob batch:  ",clock_stop_query - clock_start_query)
 
-
-    #------------- query calc complete ----------------------------------------------------------------------
-    #start update calc
-
-
-
-
-    #------------ update calc complete ----------------------------------------------------------------------
-    #start backup calc
-
-
-
-
-
-    #----------- backup calc complete -----------------------------------------------------------------------
-
+    #------------- Time Query batch complete ---------------------------------------------------------
+    #begin backup
+    #
+    # print("what")
+    # clock_start_backup = time.time()
+    # dump = f"mysqldump -h {hostname} -u {username} -p {password} > {os.getcwd()}/back.sql"
+    # os.system(dump)
+    # clock_stop_backup = time.time()
+    #
+    # print("Backup time for blob: ",clock_stop_backup-clock_start_backup)
 
 elif test_type == "h5py":
-    
+    pass
 
 
 
@@ -134,10 +147,6 @@ elif test_type == "path":
 
 
 
-
-#Out of time :(
-elif test_type == "zipped path":
-    pass
 
 
 
